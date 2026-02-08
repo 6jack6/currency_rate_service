@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package rates;
+
+option java_multiple_files = true;
+option java_package = "com.example.rates";
+option java_outer_classname = "RatesProto";
+
+message RateRequest {
+  string pair = 1; // e.g. "USDRUB"
+}
+
+message RateResponse {
+  string pair = 1;
+  double value = 2;
+  string timestamp = 3;
+}
+
+service CurrencyRateService {
+  rpc GetRate (RateRequest) returns (RateResponse);
+}
