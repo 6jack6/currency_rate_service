@@ -1,36 +1,63 @@
 # currency_rate_service
 
-## Prerequisite
+## One-command start (Pact + runtime)
 
-Start ZooKeeper on `localhost:2181`.
-
-Example with Docker:
+Run Pact Broker, publish consumer contracts, and then start all runtime services:
 
 ```bash
-docker run --name zookeeper -p 2181:2181 -d zookeeper:3.9
+docker compose up -d pact-broker-db pact-broker && docker compose run --rm pact-consumer-tests && docker compose up --build -d zookeeper currency-rate-provider rate-printer
 ```
+
+## Prerequisite
+
+Start Docker Desktop (or any running Docker Engine).
+
+Consumer contracts are generated in `rate-printer/target/pacts` and can be published to the broker.
+`currency-rate-provider` verifies contracts directly from Pact Broker during Docker image build.
 
 ## How to run
 
-1) Start first provider instance:
+Start Pact Broker:
 
 ```bash
-cd currency-rate-provider
-./mvnw spring-boot:run
+docker compose up -d pact-broker-db pact-broker
 ```
 
-2) Start second provider instance (optional, to see balancing):
+Generate and publish consumer pact:
 
 ```bash
-cd currency-rate-provider
-GRPC_PORT=9091 ./mvnw spring-boot:run
+docker compose run --rm pact-consumer-tests
 ```
 
-3) Start client in another terminal:
+Build and start runtime services:
 
 ```bash
-cd rate-printer
-./mvnw spring-boot:run
+docker compose up --build -d zookeeper currency-rate-provider rate-printer
 ```
 
-`rate-printer` will discover all `currency-rate-provider` instances from ZooKeeper and distribute gRPC calls with round-robin balancing.
+Watch client output (rates every ~5 seconds):
+
+```bash
+docker compose logs -f rate-printer
+```
+
+## Cleanup
+
+Stop and remove everything:
+
+```bash
+docker compose down -v --remove-orphans
+```
+
+If you also want to remove downloaded Docker images for this project:
+
+```bash
+docker compose down --rmi all -v --remove-orphans
+```
+
+## What Uses What
+
+- `Pact Broker` stores published consumer contracts and provider verification results. `rate-printer` publishes to it,
+  `currency-rate-provider` loads contracts from it during build (`mvn verify`).
+- `ZooKeeper` is unrelated to Pact. It is used only for runtime service discovery between the gRPC client and provider
+  instances.
