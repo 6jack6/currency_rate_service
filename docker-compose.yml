@@ -1,0 +1,75 @@
+services:
+  zookeeper:
+    image: zookeeper:3.9
+
+  pact-broker-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pact_broker
+      POSTGRES_USER: pact
+      POSTGRES_PASSWORD: pact
+    ports:
+      - "5432:5432"
+    volumes:
+      - pact-broker-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pact -d pact_broker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pact-broker:
+    image: pactfoundation/pact-broker:latest
+    depends_on:
+      pact-broker-db:
+        condition: service_healthy
+    environment:
+      PACT_BROKER_DATABASE_ADAPTER: postgres
+      PACT_BROKER_DATABASE_HOST: pact-broker-db
+      PACT_BROKER_DATABASE_NAME: pact_broker
+      PACT_BROKER_DATABASE_USERNAME: pact
+      PACT_BROKER_DATABASE_PASSWORD: pact
+      PACT_BROKER_BASE_URL: http://host.docker.internal:9292
+    ports:
+      - "9292:9292"
+    restart: on-failure
+
+  pact-consumer-tests:
+    image: maven:3.9.9-eclipse-temurin-11
+    working_dir: /workspace/rate-printer
+    volumes:
+      - .:/workspace
+    depends_on:
+      - pact-broker
+    command:
+      - ./mvnw
+      - test
+      - -Dpact.publish.enabled=true
+      - -Dpactbroker.url=http://pact-broker:9292
+      - -Dpact.consumer.version=1.0.0
+
+  currency-rate-provider:
+    build:
+      context: ./currency-rate-provider
+      args:
+        PACT_BROKER_URL: http://host.docker.internal:9292
+    environment:
+      ZOOKEEPER_CONNECT_STRING: zookeeper:2181
+      GRPC_PORT: 9090
+    depends_on:
+      - zookeeper
+      - pact-broker
+    restart: on-failure
+
+  rate-printer:
+    build:
+      context: ./rate-printer
+    environment:
+      ZOOKEEPER_CONNECT_STRING: zookeeper:2181
+    depends_on:
+      - zookeeper
+      - currency-rate-provider
+    restart: on-failure
+
+volumes:
+  pact-broker-db-data:
