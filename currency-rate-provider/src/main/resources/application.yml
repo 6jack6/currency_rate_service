@@ -9,6 +9,27 @@ spring:
         register: true
         instance-port: ${grpc.server.port}
 
+server:
+  port: ${HTTP_PORT:8080}
+
 grpc:
   server:
     port: ${GRPC_PORT:9090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        grpc.server.requests: true
+      percentiles:
+        grpc.server.requests: 0.5,0.95,0.99

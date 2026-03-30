@@ -1,6 +1,6 @@
 spring:
   application:
-    name: rate-printer
+    name: ${SPRING_APPLICATION_NAME:rate-printer}
   cloud:
     zookeeper:
       connect-string: ${ZOOKEEPER_CONNECT_STRING:localhost:2181}
@@ -8,9 +8,28 @@ spring:
         enabled: true
         register: false
 
+server:
+  port: ${HTTP_PORT:8080}
+
+app:
+  client-id: ${CLIENT_ID:client}
+
 grpc:
   client:
     currency-rate-provider:
       address: discovery:///currency-rate-provider
       negotiationType: plaintext
       defaultLoadBalancingPolicy: round_robin
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true

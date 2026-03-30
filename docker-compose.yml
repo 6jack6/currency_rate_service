@@ -1,6 +1,11 @@
 services:
   zookeeper:
     image: zookeeper:3.9
+    environment:
+      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7070"
+    ports:
+      - "2181:2181"
+      - "7070:7070"
 
   pact-broker-db:
     image: postgres:16-alpine
@@ -48,11 +53,12 @@ services:
       - -Dpactbroker.url=http://pact-broker:9292
       - -Dpact.consumer.version=1.0.0
 
-  currency-rate-provider:
+  service1:
     build:
       context: ./currency-rate-provider
       args:
         PACT_BROKER_URL: http://host.docker.internal:9292
+    image: currency-rate-provider:local
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       GRPC_PORT: 9090
@@ -61,15 +67,58 @@ services:
       - pact-broker
     restart: on-failure
 
-  rate-printer:
-    build:
-      context: ./rate-printer
+  service2:
+    image: currency-rate-provider:local
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
+      GRPC_PORT: 9090
     depends_on:
       - zookeeper
-      - currency-rate-provider
+      - pact-broker
+      - service1
     restart: on-failure
+
+  client:
+    build:
+      context: ./rate-printer
+    image: rate-printer:local
+    environment:
+      ZOOKEEPER_CONNECT_STRING: zookeeper:2181
+      SPRING_APPLICATION_NAME: client
+      CLIENT_ID: client
+    depends_on:
+      - zookeeper
+      - service1
+      - service2
+    restart: on-failure
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - client
+      - service1
+      - service2
+      - zookeeper
+
+  grafana:
+    image: grafana/grafana:10.4.5
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
 
 volumes:
   pact-broker-db-data:
