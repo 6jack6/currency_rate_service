@@ -21,11 +21,19 @@ public class RatePrinterService {
   public void printRate() {
     try {
       RateRequest request = RateRequest.newBuilder().setPair("USDRUB").build();
+      log.info("Client request: getRate pair={}", request.getPair());
       RateResponse response = blockingStub.getRate(request);
-
+      log.info(
+          "Client response: pair={} value={} timestamp={}",
+          response.getPair(),
+          response.getValue(),
+          response.getTimestamp());
       System.out.printf("%s %s = %.4f%n", response.getTimestamp(), response.getPair(), response.getValue());
     } catch (StatusRuntimeException e) {
-      log.warn("Rate provider is not ready yet: {}", e.getStatus().getDescription());
+      log.warn(
+          "Client error: status={} description={}",
+          e.getStatus().getCode(),
+          e.getStatus().getDescription());
     }
   }
 }

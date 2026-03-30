@@ -12,5 +12,5 @@ FROM eclipse-temurin:11-jre
 WORKDIR /app
 COPY --from=build /app/target/currency-rate-provider-0.0.1-SNAPSHOT.jar app.jar
 
-EXPOSE 9090
+EXPOSE 8080 9090
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
