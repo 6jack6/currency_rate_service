@@ -7,6 +7,7 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ForwardingClientCall;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
+import java.util.Map;
 import net.devh.boot.grpc.client.interceptor.GrpcGlobalClientInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -19,9 +20,12 @@ public class ClientIdMetadataInterceptor implements ClientInterceptor {
       Metadata.Key.of("client-id", Metadata.ASCII_STRING_MARSHALLER);
 
   private final String clientId;
+  private final EventStreamLogger eventLogger;
 
-  public ClientIdMetadataInterceptor(@Value("${app.client-id}") String clientId) {
+  public ClientIdMetadataInterceptor(
+      @Value("${app.client-id}") String clientId, EventStreamLogger eventLogger) {
     this.clientId = clientId;
+    this.eventLogger = eventLogger;
   }
 
   @Override
@@ -35,6 +39,9 @@ public class ClientIdMetadataInterceptor implements ClientInterceptor {
       public void start(Listener<RespT> responseListener, Metadata headers) {
         headers.discardAll(CLIENT_ID_KEY);
         headers.put(CLIENT_ID_KEY, clientId);
+        eventLogger.event(
+            "grpc.client.metadata_attached",
+            Map.of("method", method.getFullMethodName(), "clientId", clientId));
         super.start(responseListener, headers);
       }
     };

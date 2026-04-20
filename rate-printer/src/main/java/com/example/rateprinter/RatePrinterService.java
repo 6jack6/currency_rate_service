@@ -4,36 +4,41 @@ import com.example.rates.CurrencyRateServiceGrpc;
 import com.example.rates.RateRequest;
 import com.example.rates.RateResponse;
 import io.grpc.StatusRuntimeException;
+import java.util.Map;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RatePrinterService {
-  private static final Logger log = LoggerFactory.getLogger(RatePrinterService.class);
 
   @GrpcClient("currency-rate-provider")
   private CurrencyRateServiceGrpc.CurrencyRateServiceBlockingStub blockingStub;
+
+  private final EventStreamLogger eventLogger;
+
+  public RatePrinterService(EventStreamLogger eventLogger) {
+    this.eventLogger = eventLogger;
+  }
 
   @Scheduled(initialDelay = 5000, fixedDelay = 5000)
   public void printRate() {
     try {
       RateRequest request = RateRequest.newBuilder().setPair("USDRUB").build();
-      log.info("Client request: getRate pair={}", request.getPair());
+      eventLogger.event("grpc.client.request_sent", Map.of("pair", request.getPair()));
       RateResponse response = blockingStub.getRate(request);
-      log.info(
-          "Client response: pair={} value={} timestamp={}",
-          response.getPair(),
-          response.getValue(),
-          response.getTimestamp());
-      System.out.printf("%s %s = %.4f%n", response.getTimestamp(), response.getPair(), response.getValue());
+      eventLogger.event(
+          "grpc.client.response_received",
+          Map.of(
+              "pair", response.getPair(),
+              "value", response.getValue(),
+              "timestamp", response.getTimestamp()));
     } catch (StatusRuntimeException e) {
-      log.warn(
-          "Client error: status={} description={}",
-          e.getStatus().getCode(),
-          e.getStatus().getDescription());
+      eventLogger.event(
+          "grpc.client.error",
+          Map.of(
+              "status", e.getStatus().getCode().name(),
+              "description", String.valueOf(e.getStatus().getDescription())));
     }
   }
 }
