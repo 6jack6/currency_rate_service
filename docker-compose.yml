@@ -53,12 +53,20 @@ services:
       - -Dpactbroker.url=http://pact-broker:9292
       - -Dpact.consumer.version=1.0.0
 
+  pact-provider-tests:
+    image: maven:3.9.9-eclipse-temurin-11
+    working_dir: /workspace/currency-rate-provider
+    volumes:
+      - .:/workspace
+    depends_on:
+      - pact-broker
+    command:
+      - ./mvnw
+      - test
+      - -Dpactbroker.url=http://pact-broker:9292
+
   service1:
-    build:
-      context: ./currency-rate-provider
-      args:
-        PACT_BROKER_URL: http://host.docker.internal:9292
-    image: currency-rate-provider:local
+    image: currency-rate-provider:release
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       GRPC_PORT: 9090
@@ -68,7 +76,7 @@ services:
     restart: on-failure
 
   service2:
-    image: currency-rate-provider:local
+    image: currency-rate-provider:release
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       GRPC_PORT: 9090
@@ -79,9 +87,7 @@ services:
     restart: on-failure
 
   client:
-    build:
-      context: ./rate-printer
-    image: rate-printer:local
+    image: rate-printer:release
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       SPRING_APPLICATION_NAME: client
