@@ -10,6 +10,14 @@ Docker Engine running (e.g. Docker Desktop).
 
 From the repo root:
 
+One-command pipeline:
+
+```bash
+./scripts/build-release-run.sh
+```
+
+Or step by step:
+
 1) Build stage (build images only):
 
 ```bash
