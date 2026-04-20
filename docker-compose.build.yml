@@ -1,0 +1,12 @@
+services:
+  service1:
+    build:
+      context: ./currency-rate-provider
+      args:
+        PACT_BROKER_URL: http://host.docker.internal:9292
+    image: currency-rate-provider:build
+
+  client:
+    build:
+      context: ./rate-printer
+    image: rate-printer:build

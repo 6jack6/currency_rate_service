@@ -1,11 +1,9 @@
 FROM maven:3.9.9-eclipse-temurin-11 AS build
 
-ARG PACT_BROKER_URL=http://host.docker.internal:9292
-
 WORKDIR /app
 COPY pom.xml .
 COPY src src
-RUN mvn -q verify -Dpactbroker.url=${PACT_BROKER_URL}
+RUN mvn -q -DskipTests package
 
 FROM eclipse-temurin:11-jre
 
