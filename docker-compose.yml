@@ -4,17 +4,18 @@ services:
     environment:
       ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7070"
     ports:
-      - "2181:2181"
-      - "7070:7070"
+      - "${ZOOKEEPER_CLIENT_PORT:-2181}:2181"
+      - "${ZOOKEEPER_METRICS_PORT:-7070}:7070"
 
   pact-broker-db:
+    profiles: ["contracts"]
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: pact_broker
       POSTGRES_USER: pact
       POSTGRES_PASSWORD: pact
     ports:
-      - "5432:5432"
+      - "${PACT_BROKER_DB_PORT:-5432}:5432"
     volumes:
       - pact-broker-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -24,6 +25,7 @@ services:
       retries: 10
 
   pact-broker:
+    profiles: ["contracts"]
     image: pactfoundation/pact-broker:latest
     depends_on:
       pact-broker-db:
@@ -34,12 +36,13 @@ services:
       PACT_BROKER_DATABASE_NAME: pact_broker
       PACT_BROKER_DATABASE_USERNAME: pact
       PACT_BROKER_DATABASE_PASSWORD: pact
-      PACT_BROKER_BASE_URL: http://host.docker.internal:9292
+      PACT_BROKER_BASE_URL: http://host.docker.internal:${PACT_BROKER_PORT:-9292}
     ports:
-      - "9292:9292"
+      - "${PACT_BROKER_PORT:-9292}:9292"
     restart: on-failure
 
   pact-consumer-tests:
+    profiles: ["contracts"]
     image: maven:3.9.9-eclipse-temurin-11
     working_dir: /workspace/rate-printer
     volumes:
@@ -54,6 +57,7 @@ services:
       - -Dpact.consumer.version=1.0.0
 
   pact-provider-tests:
+    profiles: ["contracts"]
     image: maven:3.9.9-eclipse-temurin-11
     working_dir: /workspace/currency-rate-provider
     volumes:
@@ -66,28 +70,26 @@ services:
       - -Dpactbroker.url=http://pact-broker:9292
 
   service1:
-    image: currency-rate-provider:release
+    image: currency-rate-provider:${CURRENCY_RATE_PROVIDER_TAG:-release}
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       GRPC_PORT: 9090
     depends_on:
       - zookeeper
-      - pact-broker
     restart: on-failure
 
   service2:
-    image: currency-rate-provider:release
+    image: currency-rate-provider:${CURRENCY_RATE_PROVIDER_TAG:-release}
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       GRPC_PORT: 9090
     depends_on:
       - zookeeper
-      - pact-broker
       - service1
     restart: on-failure
 
   client:
-    image: rate-printer:release
+    image: rate-printer:${RATE_PRINTER_TAG:-release}
     environment:
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
       SPRING_APPLICATION_NAME: client
@@ -105,7 +107,7 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       - client
       - service1
@@ -122,7 +124,7 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     depends_on:
       - prometheus
 
